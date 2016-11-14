@@ -36,17 +36,14 @@ func createIndex(indexService service.IndexService) http.HandlerFunc {
 		splitPath := strings.Split(path, "/")
 
 		if len(splitPath) < 2 || splitPath[1] == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("No index was specified."))
+			http.Error(w, "No index was specified.", http.StatusBadRequest)
 			return
 		}
 		// The component after the first '/'. Ignore the rest.
 		index := splitPath[1]
 		_, err := indexService.Create(index)
 		if err != nil {
-
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
