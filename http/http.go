@@ -30,13 +30,13 @@ func (server *Server) Listen(port int) {
 	srv.ListenAndServe()
 }
 
-func createIndex(indexService service.IndexService) func(w http.ResponseWriter, r *http.Request) {
+func createIndex(indexService service.IndexService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := strings.Replace(r.URL.Path, indexPath, "", 1)
 		splitPath := strings.Split(path, "/")
 
 		if len(splitPath) < 2 || splitPath[1] == "" {
-			w.WriteHeader(400)
+			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("No index was specified."))
 			return
 		}
@@ -44,11 +44,12 @@ func createIndex(indexService service.IndexService) func(w http.ResponseWriter, 
 		index := splitPath[1]
 		_, err := indexService.Create(index)
 		if err != nil {
-			w.WriteHeader(400)
+
+			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
 			return
 		}
-		w.WriteHeader(201)
+		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte("Created index: " + index))
 	}
 }
