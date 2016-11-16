@@ -14,7 +14,7 @@ type DefaultIndexService struct{}
 func (*DefaultIndexService) Create(indexName string, id string, data interface{}) (bleve.Index, error) {
 	mapping := bleve.NewIndexMapping()
 
-	index, err := bleve.New(indexName, mapping)
+	index, err := bleve.New(".db/"+indexName, mapping)
 	if err != nil {
 		return nil, err
 	}
