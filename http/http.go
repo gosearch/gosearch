@@ -4,10 +4,12 @@ import (
 	"net/http"
 	"strconv"
 
-	"strings"
-
+	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/gosearch/gosearch/service"
+	"io"
+	"io/ioutil"
+	"log"
 )
 
 const indexPath = "/index"
@@ -19,34 +21,38 @@ type Server struct {
 
 // Listen starts the http server on the given port.
 func (server *Server) Listen(port int) {
-	r := mux.NewRouter()
-	s := r.PathPrefix(indexPath)
-	s.HandlerFunc(createIndex(server.Index)).Methods(http.MethodPost)
+	router := mux.NewRouter()
+	router.HandleFunc("/{index}/{id}", createIndex(server.Index)).Methods(http.MethodPost)
 
-	srv := &http.Server{
-		Handler: r,
-		Addr:    "127.0.0.1:" + strconv.Itoa(port),
-	}
-	srv.ListenAndServe()
+	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), router))
 }
 
 func createIndex(indexService service.IndexService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		path := strings.Replace(r.URL.Path, indexPath, "", 1)
-		splitPath := strings.Split(path, "/")
-
-		if len(splitPath) < 2 || splitPath[1] == "" {
-			http.Error(w, "No index was specified.", http.StatusBadRequest)
-			return
-		}
-		// The component after the first '/'. Ignore the rest.
-		index := splitPath[1]
-		_, err := indexService.Create(index)
+		vars := mux.Vars(r)
+		index := vars["index"]
+		id := vars["id"]
+		data, err := bodyToJSON(r)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
+		indexService.Create(index, id, data)
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("Created index: " + index))
 	}
+}
+
+func bodyToJSON(r *http.Request) (interface{}, error) {
+	var data interface{}
+	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
+	if err != nil {
+		return nil, err
+	}
+	if err := r.Body.Close(); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(body, &data); err != nil {
+		return nil, err
+	}
+	return data, nil
 }

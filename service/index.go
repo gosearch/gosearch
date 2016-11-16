@@ -4,18 +4,24 @@ import "github.com/blevesearch/bleve"
 
 // IndexService specifies an API to interact with indexes.
 type IndexService interface {
-	Create(path string) (bleve.Index, error)
+	Create(indexName string, id string, data interface{}) (bleve.Index, error)
 }
 
 // DefaultIndexService is a default implementation of IndexService using bleve.
 type DefaultIndexService struct{}
 
 // Create creates an index.
-func (*DefaultIndexService) Create(path string) (bleve.Index, error) {
+func (*DefaultIndexService) Create(indexName string, id string, data interface{}) (bleve.Index, error) {
 	mapping := bleve.NewIndexMapping()
-	index, err := bleve.New(path, mapping)
+
+	index, err := bleve.New(indexName, mapping)
 	if err != nil {
 		return nil, err
 	}
+
+	if err := index.Index(id, data); err != nil {
+		return nil, err
+	}
+
 	return index, nil
 }
