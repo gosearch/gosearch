@@ -5,12 +5,11 @@ import (
 	"strconv"
 
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/gosearch/gosearch/service"
 	"io"
 	"io/ioutil"
-	"log"
-	"reflect"
 )
 
 const indexPath = "/index"
@@ -24,9 +23,8 @@ type Server struct {
 func (server *Server) Listen(port int) {
 	router := mux.NewRouter()
 	router.HandleFunc("/{index}/{id}", createIndex(server.Index)).Methods(http.MethodPost)
-	router.HandleFunc("/{index}/{id}", showIndex(server.Index)).Methods(http.MethodGet)
-
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), router))
+	router.HandleFunc("/{index}/{id}", getIndex(server.Index)).Methods(http.MethodGet)
+	fmt.Println(http.ListenAndServe(":"+strconv.Itoa(port), router))
 }
 
 func createIndex(indexService service.IndexService) http.HandlerFunc {
@@ -44,7 +42,7 @@ func createIndex(indexService service.IndexService) http.HandlerFunc {
 	}
 }
 
-func showIndex(indexService service.IndexService) http.HandlerFunc {
+func getIndex(indexService service.IndexService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		index := vars["index"]
@@ -54,12 +52,11 @@ func showIndex(indexService service.IndexService) http.HandlerFunc {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		//TODO: is there a better way to check if data is nil?
-		if reflect.ValueOf(data).IsNil() {
+		if data == nil {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		respondWithJSON(w, data)
+		fmt.Println(data.GoString())
 	}
 }
 

@@ -1,12 +1,17 @@
 package service
 
-import "github.com/blevesearch/bleve"
-import "log"
+import (
+	"github.com/blevesearch/bleve"
+	"github.com/blevesearch/bleve/document"
+
+	"fmt"
+	"path/filepath"
+)
 
 // IndexService specifies an API to interact with indexes.
 type IndexService interface {
 	Create(indexName string, id string, data interface{}) (bleve.Index, error)
-	Get(indexName string, id string) (interface{}, error)
+	Get(indexName string, id string) (*document.Document, error)
 }
 
 // DefaultIndexService is a default implementation of IndexService using bleve.
@@ -29,7 +34,7 @@ func (*DefaultIndexService) Create(indexName string, id string, data interface{}
 }
 
 // Get returns a document with id `id`
-func (*DefaultIndexService) Get(indexName string, id string) (interface{}, error) {
+func (*DefaultIndexService) Get(indexName string, id string) (*document.Document, error) {
 	//TODO: Don't open and close the index for every request
 	index, err := openOrCreateIndex(indexName)
 	if err != nil {
@@ -47,18 +52,19 @@ func (*DefaultIndexService) Get(indexName string, id string) (interface{}, error
 }
 
 func openOrCreateIndex(indexName string) (bleve.Index, error) {
-	index, err := bleve.Open(".db/" + indexName)
+	path := filepath.Join(".db", indexName)
+	index, err := bleve.Open(path)
 	if err == bleve.ErrorIndexPathDoesNotExist {
-		log.Printf("Creating new index " + indexName)
+		fmt.Println("Creating new index " + indexName)
 		mapping := bleve.NewIndexMapping()
-		index, err := bleve.New(".db/"+indexName, mapping)
+		index, err := bleve.New(path, mapping)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Println(err)
 			return nil, err
 		}
 		return index, nil
 	} else if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 		return nil, err
 	}
 	return index, nil
