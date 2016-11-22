@@ -36,8 +36,11 @@ func (*DefaultIndexService) Create(indexName string, id string, data interface{}
 // Get returns a document with id `id`
 func (*DefaultIndexService) Get(indexName string, id string) (*document.Document, error) {
 	//TODO: Don't open and close the index for every request
-	index, err := openOrCreateIndex(indexName)
-	if err != nil {
+	path := filepath.Join(".db", indexName)
+	index, err := bleve.Open(path)
+	if err == bleve.ErrorIndexPathDoesNotExist {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 	defer index.Close()
