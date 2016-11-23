@@ -37,7 +37,11 @@ func createIndex(indexService service.IndexService) http.HandlerFunc {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
-		indexService.Create(index, id, data)
+		_, err = indexService.Create(index, id, data)
+		if err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			return
+		}
 		w.WriteHeader(http.StatusCreated)
 	}
 }
