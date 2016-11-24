@@ -4,10 +4,12 @@ import (
 	"net/http"
 	"strconv"
 
-	"strings"
-
+	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/gosearch/gosearch/service"
+	"io"
+	"io/ioutil"
 )
 
 const indexPath = "/index"
@@ -19,34 +21,70 @@ type Server struct {
 
 // Listen starts the http server on the given port.
 func (server *Server) Listen(port int) {
-	r := mux.NewRouter()
-	s := r.PathPrefix(indexPath)
-	s.HandlerFunc(createIndex(server.Index)).Methods(http.MethodPost)
-
-	srv := &http.Server{
-		Handler: r,
-		Addr:    "127.0.0.1:" + strconv.Itoa(port),
-	}
-	srv.ListenAndServe()
+	router := mux.NewRouter()
+	router.HandleFunc("/{index}/{id}", createIndex(server.Index)).Methods(http.MethodPost)
+	router.HandleFunc("/{index}/{id}", getIndex(server.Index)).Methods(http.MethodGet)
+	fmt.Println(http.ListenAndServe(":"+strconv.Itoa(port), router))
 }
 
 func createIndex(indexService service.IndexService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		path := strings.Replace(r.URL.Path, indexPath, "", 1)
-		splitPath := strings.Split(path, "/")
-
-		if len(splitPath) < 2 || splitPath[1] == "" {
-			http.Error(w, "No index was specified.", http.StatusBadRequest)
+		vars := mux.Vars(r)
+		index := vars["index"]
+		id := vars["id"]
+		data, err := bodyToJSON(r)
+		if err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
-		// The component after the first '/'. Ignore the rest.
-		index := splitPath[1]
-		_, err := indexService.Create(index)
+		_, err = indexService.Create(index, id, data)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("Created index: " + index))
 	}
+}
+
+func getIndex(indexService service.IndexService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		index := vars["index"]
+		id := vars["id"]
+		data, err := indexService.Get(index, id)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if data == nil {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		fmt.Println(data.GoString())
+	}
+}
+
+func bodyToJSON(r *http.Request) (interface{}, error) {
+	var data interface{}
+	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
+	if err != nil {
+		return nil, err
+	}
+	if err := r.Body.Close(); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(body, &data); err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func respondWithJSON(w http.ResponseWriter, data interface{}) {
+	body, err := json.Marshal(data)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write(body)
 }
